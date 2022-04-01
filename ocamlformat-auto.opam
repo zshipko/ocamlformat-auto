@@ -12,6 +12,7 @@ depends: [
   "ocaml"
   "dune" {>= "3.0"}
   "cmdliner"
+  "bos"
   "odoc" {with-doc}
 ]
 build: [

@@ -1,4 +1,4 @@
 (executable
  (public_name ocamlformat-auto)
  (name main)
- (libraries cmdliner unix))
+ (libraries cmdliner unix bos))

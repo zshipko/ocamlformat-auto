@@ -18,6 +18,6 @@
 (package
  (name ocamlformat-auto)
  (synopsis "A program to automatically select the correct ocamlformat version")
- (depends ocaml dune cmdliner)
+ (depends ocaml dune cmdliner bos)
  (tags
   (ocamlformat)))
