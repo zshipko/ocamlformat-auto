@@ -8,8 +8,8 @@ module Ocamlformat_version = struct
       Unix.open_process_in
         "opam info ocamlformat --field all-versions --color=never"
     in
-    let r = In_channel.input_line inp |> Option.value ~default:"" in
-    In_channel.close inp;
+    let r = input_line inp in
+    close_in inp;
     List.map String.trim @@ String.split_on_char ' ' r
 
   let latest () = List.rev (all ()) |> List.hd
@@ -17,18 +17,20 @@ module Ocamlformat_version = struct
   let detect () =
     if not (Sys.file_exists ".ocamlformat") then None
     else
-      In_channel.with_open_text ".ocamlformat" (fun f ->
-          let f = In_channel.input_all f in
-          let lines = String.split_on_char '\n' f in
-          List.fold_left
-            (fun acc line ->
-              if Option.is_none acc && String.starts_with ~prefix:"version" line
-              then
-                let s = String.split_on_char '=' line in
-                let v = List.nth s 1 in
-                Some (String.trim v)
-              else acc)
-            None lines)
+      let f = open_in ".ocamlformat" in
+      let n = in_channel_length f in
+      let data = really_input_string f n in
+      let lines = String.split_on_char '\n' data in
+      let () = close_in f in
+      List.fold_left
+        (fun acc line ->
+          if Option.is_none acc && String.starts_with ~prefix:"version" line
+          then
+            let s = String.split_on_char '=' line in
+            let v = List.nth s 1 in
+            Some (String.trim v)
+          else acc)
+        None lines
 end
 
 module Temp_dir = struct
@@ -62,8 +64,9 @@ module Shim = struct
     let () = if Sys.file_exists exe then Unix.unlink exe in
     let installed = path // "ocamlformat-auto" in
     let () = copy_self installed in
-    Out_channel.with_open_text exe (fun oc ->
-        Printf.fprintf oc "#!/usr/bin/env sh\n%s exec -- $@\n" installed);
+    let oc = open_out exe in
+    Printf.fprintf oc "#!/usr/bin/env sh\n%s exec -- $@\n%!" installed;
+    let () = close_out oc in
     let make_executable = Cmd.(v "chmod" % "+x" % exe) in
     OS.Cmd.run_status make_executable |> handle_status;
     Printf.printf "Created ocamlformat shim in %s\n%!" path
