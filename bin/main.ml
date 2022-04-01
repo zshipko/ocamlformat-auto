@@ -50,13 +50,9 @@ let handle_status ?tmp x =
       Option.iter Temp_dir.cleanup tmp;
       exit 1
 
-let make_executable ?tmp path =
-  let cmd = Cmd.(v "chmod" % "+x" % path) in
-  OS.Cmd.run_status cmd |> handle_status ?tmp
-
 module Shim = struct
   let copy_self dest =
-    OS.Cmd.run_status Cmd.(v "cp" % Sys.executable_name % dest) |> handle_status
+    OS.Cmd.run_status Cmd.(v "cp" % "-p" % Sys.executable_name % dest) |> handle_status
 
   let init path =
     let exe = path // "ocamlformat" in
@@ -65,7 +61,8 @@ module Shim = struct
     let () = copy_self installed in
     Out_channel.with_open_text exe (fun oc ->
         Printf.fprintf oc "#!/usr/bin/env sh\n%s exec -- $@\n" installed);
-    make_executable path
+    let make_executable = Cmd.(v "chmod" % "+x" % exe) in
+    OS.Cmd.run_status make_executable |> handle_status
 end
 
 let install_cmd path version ocaml_version force init =
