@@ -3,6 +3,9 @@
 `ocamlformat-auto` is an application inspired by [ocamlformat-vmux](https://github.com/CraigFe/ocamlformat-vmux)
 that can be used to manage multiple versions of [ocamlformat](https://github.com/ocaml-ppx/ocamlformat)
 
+It will create an executable script named `ocamlformat` that will select the proper version for each
+project.
+
 ## Examples
 
 Initialize the shim:
@@ -36,8 +39,14 @@ by checking the `.ocamlformat` file for your project):
 $ ocamlformat-auto exec -- ./bin/main.ml -i
 ```
 
-If the shim is installed (using the `init` command), then you can run ocamlformat
-like normal and the correct version will automatically be selected.
+If the shim is installed (using the `init` command), then you can run `ocamlformat`
+like normal and the correct version will automatically be selected:
+
+```shell
+$ ocamlformat ./bin/main.ml -i
+```
+
+For more information run `ocamlformat-auto --help`
 
 ## Typical workflow
 

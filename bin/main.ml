@@ -15,37 +15,41 @@ let cleanup tmp =
   if Sys.file_exists tmp && Sys.is_directory tmp then
     try ignore @@ Unix.system (Printf.sprintf "rm -r '%s'" tmp) with _ -> ()
 
-let handle_status tmp = function
+let handle_status ?tmp = function
   | Unix.WEXITED 0 -> ()
   | Unix.WEXITED n ->
       Printf.eprintf "Subprocess exited with code %d\n" n;
-      cleanup tmp;
+      Option.iter cleanup tmp;
       exit n
   | Unix.WSIGNALED n ->
       Printf.eprintf "Subprocess received signal %d\n" n;
-      cleanup tmp;
+      Option.iter cleanup tmp;
       exit 1
   | Unix.WSTOPPED n ->
       Printf.eprintf "Subprocess stopped with status %d\n" n;
-      cleanup tmp;
+      Option.iter cleanup tmp;
       exit 1
 
-let copy_file ?(mode = 0o755) ~src dest =
-  if not (Sys.file_exists dest) then
-    let () =
-      In_channel.with_open_bin src (fun ic ->
-          let s = In_channel.input_all ic in
-          Out_channel.with_open_bin dest (fun oc ->
-              Out_channel.output_string oc s))
-    in
-    Unix.chmod dest mode
+let make_executable ?tmp path =
+  Unix.system (Printf.sprintf "chmod +x '%s'" path) |> handle_status ?tmp
+
+let copy_self dest =
+  let () = if Sys.file_exists dest then Unix.unlink dest in
+  let () =
+    In_channel.with_open_bin Sys.executable_name (fun ic ->
+        let s = In_channel.input_all ic in
+        Out_channel.with_open_bin dest (fun oc ->
+            Out_channel.output_string oc s))
+  in
+  make_executable dest
 
 let make_init path =
   let () = if Sys.file_exists path then Unix.unlink path in
-  let self_path = Filename.dirname path // "ocamlformat-auto" in
-  let () = copy_file ~src:Sys.executable_name self_path in
+  let installed = Filename.dirname path // "ocamlformat-auto" in
+  let () = copy_self installed in
   Out_channel.with_open_text path (fun oc ->
-      Printf.fprintf oc "#!/usr/bin/env sh\n%s exec -- $@\n" self_path)
+      Printf.fprintf oc "#!/usr/bin/env sh\n%s exec -- $@\n" installed);
+  make_executable path
 
 let detect_version () =
   if not (Sys.file_exists ".ocamlformat") then None
@@ -59,7 +63,7 @@ let detect_version () =
             then
               let s = String.split_on_char '=' line in
               let v = List.nth s 1 in
-              Some v
+              Some (String.trim v)
             else acc)
           None lines)
 
@@ -81,7 +85,7 @@ let install_cmd path version ocaml_version force init =
       let () = Unix.chdir tmp in
       let () =
         Unix.system ("opam switch create . " ^ ocaml_version)
-        |> handle_status tmp
+        |> handle_status ~tmp
       in
       let ocamlformat_with_version =
         match version with
@@ -91,7 +95,7 @@ let install_cmd path version ocaml_version force init =
       let install =
         Printf.sprintf "opam install -y '%s'" ocamlformat_with_version
       in
-      let _r = Unix.system install |> handle_status tmp in
+      let _r = Unix.system install |> handle_status ~tmp in
       let () = Unix.rename "_opam/bin/ocamlformat" path_file in
       let () = cleanup tmp in
       ()
@@ -100,7 +104,7 @@ let install_cmd path version ocaml_version force init =
 
 let init_cmd path = make_init (path // "ocamlformat")
 
-let clean_cmd path version =
+let uninstall_cmd path version =
   let files = Sys.readdir path in
   let suffix = Option.value ~default:"" version in
   Array.iter
@@ -121,9 +125,7 @@ let list_cmd path available =
       (fun filename ->
         if String.starts_with ~prefix:"ocamlformat" filename then
           match filename with
-          | "ocamlformat" ->
-              let f = Unix.readlink (path // filename) in
-              Printf.printf "ocamlformat (%s)\n%!" (Filename.basename f)
+          | "ocamlformat" | "ocamlformat-auto" -> ()
           | _ -> print_endline filename)
       files
 
@@ -186,9 +188,15 @@ let list =
   let info = Cmd.info ~doc:"List installed ocamlformat executables" "list" in
   Cmd.v info Term.(const list_cmd $ path $ available)
 
-let clean =
-  let info = Cmd.info ~doc:"Remove installed ocamlformat executables" "clean" in
-  Cmd.v info Term.(const clean_cmd $ path $ version)
+let uninstall =
+  let info =
+    Cmd.info
+      ~doc:
+        "Remove installed ocamlformat executables, if no version is provided \
+         then ocamlformat-auto and all ocamlformat versions will be removed"
+      "uninstall"
+  in
+  Cmd.v info Term.(const uninstall_cmd $ path $ version)
 
 let exec =
   let info =
@@ -209,4 +217,4 @@ let init =
 
 let () =
   let info = Cmd.info "ocamlformat-auto" in
-  exit @@ Cmd.eval (Cmd.group info [ clean; list; install; init; exec ])
+  exit @@ Cmd.eval (Cmd.group info [ init; install; exec; list; uninstall ])
