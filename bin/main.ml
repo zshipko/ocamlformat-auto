@@ -30,9 +30,22 @@ let handle_status tmp = function
       cleanup tmp;
       exit 1
 
-let make_link src path =
-  let () = try Unix.unlink path with _ -> () in
-  Unix.symlink src path
+let copy_file ?(mode = 0o755) ~src dest =
+  if not (Sys.file_exists dest) then
+    let () =
+      In_channel.with_open_bin src (fun ic ->
+          let s = In_channel.input_all ic in
+          Out_channel.with_open_bin dest (fun oc ->
+              Out_channel.output_string oc s))
+    in
+    Unix.chmod dest mode
+
+let make_init path =
+  let () = if Sys.file_exists path then Unix.unlink path in
+  let self_path = Filename.dirname path // "ocamlformat-auto" in
+  let () = copy_file ~src:Sys.executable_name self_path in
+  Out_channel.with_open_text path (fun oc ->
+      Printf.fprintf oc "#!/usr/bin/env sh\n%s exec -- $@\n" self_path)
 
 let detect_version () =
   if not (Sys.file_exists ".ocamlformat") then None
@@ -50,16 +63,16 @@ let detect_version () =
             else acc)
           None lines)
 
-let install_cmd path version ocaml_version force link =
+let install_cmd path version ocaml_version force init =
   let version_s = Option.value ~default:(latest ()) version in
   let timestamp = Unix.time () |> int_of_float in
   let path_file = (path // "ocamlformat-") ^ version_s in
-  let link_file = path // "ocamlformat" in
+  let init_file = path // "ocamlformat" in
   let () =
     if (not force) && Sys.file_exists path_file then ()
     else
       let tempdir =
-        Printf.sprintf "ocamlformat-manager-%s-%s.%d" version_s ocaml_version
+        Printf.sprintf "ocamlformat-auto-%s-%s.%d" version_s ocaml_version
           timestamp
       in
       let tmp = Filename.get_temp_dir_name () // tempdir in
@@ -83,19 +96,9 @@ let install_cmd path version ocaml_version force link =
       let () = cleanup tmp in
       ()
   in
-  if link then make_link path_file link_file
+  if init then make_init init_file
 
-let link_cmd path version =
-  let version =
-    match version with
-    | None ->
-        Printf.eprintf
-          "ERROR: unable to determine correct ocamlformat version\n";
-        exit 1
-    | Some v -> v
-  in
-  let bin = Printf.sprintf "ocamlformat-%s" version in
-  make_link (path // bin) (path // "ocamlformat")
+let init_cmd path = make_init (path // "ocamlformat")
 
 let clean_cmd path version =
   let files = Sys.readdir path in
@@ -170,8 +173,8 @@ let force =
       @@ info ~doc:"Install even if the selected version is alreadyn installed"
            [ "force" ])
 
-let link_flag =
-  Arg.(value & (flag @@ info ~doc:"Install and make default" [ "link" ]))
+let init_flag =
+  Arg.(value & (flag @@ info ~doc:"Install and initialize shim" [ "init" ]))
 
 let available =
   Arg.(
@@ -198,12 +201,12 @@ let install =
   let info = Cmd.info ~doc:"Install ocamlformat" "install" in
   Cmd.v info
     Term.(
-      const install_cmd $ path $ version $ ocaml_version $ force $ link_flag)
+      const install_cmd $ path $ version $ ocaml_version $ force $ init_flag)
 
-let link =
-  let info = Cmd.info ~doc:"Set default ocamlformat version" "link" in
-  Cmd.v info Term.(const link_cmd $ path $ version)
+let init =
+  let info = Cmd.info ~doc:"Initialize shim" "init" in
+  Cmd.v info Term.(const init_cmd $ path)
 
 let () =
-  let info = Cmd.info "ocamlformat-manager" in
-  exit @@ Cmd.eval (Cmd.group info [ clean; list; install; link; exec ])
+  let info = Cmd.info "ocamlformat-auto" in
+  exit @@ Cmd.eval (Cmd.group info [ clean; list; install; init; exec ])

@@ -1,40 +1,43 @@
-# ocamlformat-manager
+# ocamlformat-auto
 
-`ocamlformat-manager` is an application inspired by [ocamlformat-vmux](https://github.com/CraigFe/ocamlformat-vmux)
+`ocamlformat-auto` is an application inspired by [ocamlformat-vmux](https://github.com/CraigFe/ocamlformat-vmux)
 that can be used to manage multiple versions of [ocamlformat](https://github.com/ocaml-ppx/ocamlformat)
 
 ## Examples
 
+Initialize the shim:
+
+```shell
+$ ocamlformat-auto init
+```
+
 Install the latest ocamlformat:
 
 ```shell
-$ ocamlformat-manager install
+$ ocamlformat-auto install
 ```
 
 Install a specific version:
 
 ```shell
-$ ocamlformat-manager install 0.20.0
+$ ocamlformat-auto install 0.20.0
 ```
 
 List installed versions:
 
 ```shell
-$ ocamlformat-manager list
-```
-
-Set a specific version as default:
-
-```shell
-$ ocamlformat-manager link 0.20.0
+$ ocamlformat-auto list
 ```
 
 Execute ocamlformat on a file (this will try to detect the correct version
 by checking the `.ocamlformat` file for your project):
 
 ```shell
-$ ocamlformat-manager exec -- ./bin/main.ml -i
+$ ocamlformat-auto exec -- ./bin/main.ml -i
 ```
+
+If the shim is installed (using the `init` command), then you can run ocamlformat
+like normal and the correct version will automatically be selected.
 
 ## Typical workflow
 
@@ -42,8 +45,7 @@ For an existing project (with an `.ocamlformat` file) you can run the following
 commands to format the project:
 
 ```shell
-$ ocamlformat-manager install
-$ ocamlformat-manager link
+$ ocamlformat-auto install --link
 $ dune build @fmt --auto-promote
 ```
 
