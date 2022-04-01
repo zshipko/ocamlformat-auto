@@ -14,7 +14,7 @@ Initialize the shim:
 $ ocamlformat-auto init
 ```
 
-Install the latest ocamlformat:
+Install the detected version (or latest if no .ocamlformat file is present):
 
 ```shell
 $ ocamlformat-auto install
@@ -39,7 +39,7 @@ by checking the `.ocamlformat` file for your project):
 $ ocamlformat-auto exec -- ./bin/main.ml -i
 ```
 
-If the shim is installed (using the `init` command), then you can run `ocamlformat`
+Once the installed (using the `init` command), then you can run `ocamlformat`
 like normal and the correct version will automatically be selected:
 
 ```shell
