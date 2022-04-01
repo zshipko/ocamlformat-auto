@@ -1,7 +1,7 @@
 # ocamlformat-manager
 
-`ocamlformat-manager` is an application that can be used to manage multiple
-versions of [ocamlformat](https://github.com/ocaml-ppx/ocamlformat)
+`ocamlformat-manager` is an application inspired by [ocamlformat-vmux](https://github.com/CraigFe/ocamlformat-vmux)
+that can be used to manage multiple versions of [ocamlformat](https://github.com/ocaml-ppx/ocamlformat)
 
 ## Examples
 
@@ -34,5 +34,16 @@ by checking the `.ocamlformat` file for your project):
 
 ```shell
 $ ocamlformat-manager exec -- ./bin/main.ml -i
+```
+
+## Typical workflow
+
+For an existing project (with an `.ocamlformat` file) you can run the following
+commands to format the project:
+
+```shell
+$ ocamlformat-manager install
+$ ocamlformat-manager link
+$ dune build @fmt --auto-promote
 ```
 
