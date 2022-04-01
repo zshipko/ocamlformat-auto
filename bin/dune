@@ -1,0 +1,4 @@
+(executable
+ (public_name install-ocamlformat)
+ (name main)
+ (libraries cmdliner unix))
