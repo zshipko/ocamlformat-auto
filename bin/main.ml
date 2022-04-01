@@ -72,6 +72,27 @@ module Shim = struct
     Printf.printf "Created ocamlformat shim in %s\n%!" path
 end
 
+let start_spinner () =
+  let finish = ref false in
+  let thread =
+    Thread.create
+      (fun () ->
+        let a = Progress.Line.spinner () in
+        let spinner = Progress.(Multi.line @@ a) in
+        let display = Progress.Display.start spinner in
+        while not !finish do
+          let () = Unix.sleepf 0.25 in
+          Progress.Display.tick display
+        done;
+        Progress.Display.finalise display)
+      ()
+  in
+  (finish, thread)
+
+let stop_spinner (finish, thread) =
+  finish := true;
+  Thread.join thread
+
 let install_cmd path version ocaml_version force init =
   let version_s =
     Option.value ~default:(Ocamlformat_version.latest ()) version
@@ -101,18 +122,26 @@ let install_cmd path version ocaml_version force init =
       let () = Unix.mkdir tmp 0o766 in
       let () = at_exit (fun () -> Temp_dir.cleanup tmp) in
       let () = Printf.printf "Creating new switch in %s\n%!" tmp in
+      let spinner = start_spinner () in
       let () =
-        OS.Cmd.run_status ~quiet:true
+        OS.Cmd.run_status ~quiet:true ~err:OS.Cmd.err_stderr
           Cmd.(v "opam" % "switch" % "create" % tmp % ocaml_version)
         |> handle_status ~tmp
       in
+      let () = stop_spinner spinner in
+
       let install =
         Cmd.(
           v "opam" % "install" % "--switch" % tmp % "-y"
           % ocamlformat_with_version)
       in
       let () = Printf.printf "Building %s\n%!" ocamlformat_with_version in
-      let () = OS.Cmd.run_status ~quiet:true install |> handle_status ~tmp in
+      let spinner = start_spinner () in
+      let () =
+        OS.Cmd.run_status ~quiet:true ~err:OS.Cmd.err_stderr install
+        |> handle_status ~tmp
+      in
+      let () = stop_spinner spinner in
       let () = Printf.printf "Copying to %s\n%!" path_file in
       let () = Unix.rename (tmp // "_opam/bin/ocamlformat") path_file in
       let () = Temp_dir.cleanup tmp in

@@ -1,4 +1,4 @@
 (executable
  (public_name ocamlformat-auto)
  (name main)
- (libraries cmdliner unix bos))
+ (libraries cmdliner unix bos progress threads))
