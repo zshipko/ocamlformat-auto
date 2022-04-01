@@ -42,17 +42,19 @@ let handle_status ?tmp x =
   match Rresult.R.failwith_error_msg x with
   | `Exited 0 -> ()
   | `Exited n ->
-      Printf.eprintf "Subprocess exited with code %d\n" n;
+      Printf.eprintf "ERROR Subprocess exited with code %d\n" n;
       Option.iter Temp_dir.cleanup tmp;
       exit n
   | `Signaled n ->
-      Printf.eprintf "Subprocess received signal %d\n" n;
+      Printf.eprintf "ERROR Subprocess received signal %d\n" n;
       Option.iter Temp_dir.cleanup tmp;
       exit 1
 
 module Shim = struct
   let copy_self dest =
-    OS.Cmd.run_status Cmd.(v "cp" % "-p" % Sys.executable_name % dest) |> handle_status
+    Printf.printf "Copying %s to %s\n%!" Sys.executable_name dest;
+    OS.Cmd.run_status Cmd.(v "cp" % "-p" % Sys.executable_name % dest)
+    |> handle_status
 
   let init path =
     let exe = path // "ocamlformat" in
@@ -62,7 +64,8 @@ module Shim = struct
     Out_channel.with_open_text exe (fun oc ->
         Printf.fprintf oc "#!/usr/bin/env sh\n%s exec -- $@\n" installed);
     let make_executable = Cmd.(v "chmod" % "+x" % exe) in
-    OS.Cmd.run_status make_executable |> handle_status
+    OS.Cmd.run_status make_executable |> handle_status;
+    Printf.printf "Created ocamlformat shim in %s\n%!" path
 end
 
 let install_cmd path version ocaml_version force init =
@@ -84,6 +87,7 @@ let install_cmd path version ocaml_version force init =
         Printf.sprintf "ocamlformat-auto-%s-%s.%d" version_s ocaml_version
           timestamp
       in
+      let () = Printf.printf "Installing %s\n%!" ocamlformat_with_version in
       let tmp = Filename.get_temp_dir_name () // tempdir in
       let () = Unix.mkdir tmp 0o766 in
       let () = at_exit (fun () -> Temp_dir.cleanup tmp) in
@@ -97,7 +101,7 @@ let install_cmd path version ocaml_version force init =
       let install =
         Cmd.(v "opam" % "install" % "-y" % ocamlformat_with_version)
       in
-      let () = Printf.printf "Installing %s\n%!" ocamlformat_with_version in
+      let () = Printf.printf "Building %s\n%!" ocamlformat_with_version in
       let () = OS.Cmd.run_status ~quiet:true install |> handle_status ~tmp in
       let () = Printf.printf "Copying to %s\n%!" path_file in
       let () = Unix.rename "_opam/bin/ocamlformat" path_file in
@@ -106,9 +110,7 @@ let install_cmd path version ocaml_version force init =
   in
   if init then Shim.init init_file
 
-let init_cmd path =
-  let () = Shim.init path in
-  Printf.printf "Created ocamlformat shim in %s\n%!" path
+let init_cmd path = Shim.init path
 
 let uninstall_cmd path version =
   let files = Sys.readdir path in
@@ -142,13 +144,18 @@ let exec_cmd path version args =
     match version with
     | Some v -> (v, "ocamlformat-" ^ v)
     | None ->
-        Printf.eprintf "Unable to detect ocamlformat version\n";
+        Printf.eprintf "ERROR Unable to detect ocamlformat version\n";
         exit 1
   in
   let exe = path // prog in
   let () =
     if not (Sys.file_exists exe) then
-      let () = Printf.eprintf "ocamlformat version not found: %s\n" v in
+      let () =
+        Printf.eprintf
+          "ERROR ocamlformat version not found, try running:\n\
+           \tocamlformat-auto install %s\n"
+          v
+      in
       exit 1
   in
   let args = Array.of_list args in
