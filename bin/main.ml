@@ -53,8 +53,9 @@ let handle_status ?tmp x =
 module Shim = struct
   let copy_self dest =
     Printf.printf "Copying %s to %s\n%!" Sys.executable_name dest;
-    OS.Cmd.run_status Cmd.(v "cp" % "-p" % Sys.executable_name % dest)
-    |> handle_status
+    OS.Cmd.run_status Cmd.(v "cp" % Sys.executable_name % dest) |> handle_status;
+    let make_executable = Cmd.(v "chmod" % "u=rwx,g=rx,o=" % dest) in
+    OS.Cmd.run_status make_executable |> handle_status
 
   let init path =
     let exe = path // "ocamlformat" in
@@ -76,7 +77,12 @@ let install_cmd path version ocaml_version force init =
   let path_file = (path // "ocamlformat-") ^ version_s in
   let init_file = path // "ocamlformat" in
   let ocamlformat_with_version =
-    match version with Some v -> "ocamlformat." ^ v | None -> "ocamlformat"
+    match version with
+    | Some v -> "ocamlformat." ^ v
+    | None ->
+        Printf.eprintf
+          "ERROR Unable to detect ocamlformat version to install\n%!";
+        exit 1
   in
   let () =
     if (not force) && Sys.file_exists path_file then
@@ -91,20 +97,21 @@ let install_cmd path version ocaml_version force init =
       let tmp = Filename.get_temp_dir_name () // tempdir in
       let () = Unix.mkdir tmp 0o766 in
       let () = at_exit (fun () -> Temp_dir.cleanup tmp) in
-      let () = Unix.chdir tmp in
       let () = Printf.printf "Creating new switch in %s\n%!" tmp in
       let () =
         OS.Cmd.run_status ~quiet:true
-          Cmd.(v "opam" % "switch" % "create" % "." % ocaml_version)
+          Cmd.(v "opam" % "switch" % "create" % tmp % ocaml_version)
         |> handle_status ~tmp
       in
       let install =
-        Cmd.(v "opam" % "install" % "-y" % ocamlformat_with_version)
+        Cmd.(
+          v "opam" % "install" % "--switch" % tmp % "-y"
+          % ocamlformat_with_version)
       in
       let () = Printf.printf "Building %s\n%!" ocamlformat_with_version in
       let () = OS.Cmd.run_status ~quiet:true install |> handle_status ~tmp in
       let () = Printf.printf "Copying to %s\n%!" path_file in
-      let () = Unix.rename "_opam/bin/ocamlformat" path_file in
+      let () = Unix.rename (tmp // "_opam/bin/ocamlformat") path_file in
       let () = Temp_dir.cleanup tmp in
       Printf.printf "Installed %s to %s\n%!" ocamlformat_with_version path
   in
