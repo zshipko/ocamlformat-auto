@@ -135,46 +135,73 @@ open Cmdliner
 
 let path =
   let default = Sys.getenv "HOME" // ".local" // "bin" in
-  Arg.(value & (opt dir default @@ Arg.info [ "path" ]))
+  Arg.(
+    value
+    & opt dir default
+      @@ Arg.info [ "path" ] ~doc:"Path to saved ocamlformat executables")
 
 let ocaml_version =
   let major = Sys.ocaml_release.major in
   let minor = Sys.ocaml_release.minor in
   let patch = Sys.ocaml_release.patchlevel in
   let default = Printf.sprintf "%d.%d.%d" major minor patch in
-  Arg.(value & (opt string default @@ Arg.info [ "ocaml-version" ]))
+  Arg.(
+    value
+    & opt string default
+      @@ Arg.info [ "ocaml-version" ]
+           ~doc:"Select ocaml version for building ocamlformat")
 
 let version =
-  Arg.(value & (pos 0 (some string) (detect_version ()) @@ Arg.info []))
+  Arg.(
+    value
+    & pos 0 (some string) (detect_version ())
+      @@ Arg.info ~doc:"ocamlformat version" ~docv:"VERSION" [])
 
 let version_flag =
-  Arg.(value & (opt (some string) None @@ Arg.info [ "version" ]))
+  Arg.(
+    value
+    & opt (some string) (detect_version ())
+      @@ Arg.info ~doc:"ocamlformat version" [ "version" ])
 
-let force = Arg.(value & (flag @@ info [ "force" ]))
-let link_flag = Arg.(value & (flag @@ info [ "link" ]))
-let available = Arg.(value & (flag @@ info [ "available" ]))
+let force =
+  Arg.(
+    value
+    & flag
+      @@ info ~doc:"Install even if the selected version is alreadyn installed"
+           [ "force" ])
+
+let link_flag =
+  Arg.(value & (flag @@ info ~doc:"Install and make default" [ "link" ]))
+
+let available =
+  Arg.(
+    value
+    & flag
+      @@ info ~doc:"List all available ocamlformat versions" [ "available" ])
 
 let list =
-  let info = Cmd.info "list" in
+  let info = Cmd.info ~doc:"List installed ocamlformat executables" "list" in
   Cmd.v info Term.(const list_cmd $ path $ available)
 
 let clean =
-  let info = Cmd.info "clean" in
+  let info = Cmd.info ~doc:"Remove installed ocamlformat executables" "clean" in
   Cmd.v info Term.(const clean_cmd $ path $ version)
 
 let exec =
-  let info = Cmd.info "exec" in
+  let info =
+    Cmd.info ~doc:"Detect correct version and execute ocamlformat" "exec"
+  in
   let rest = Arg.(value & (pos_all string [] @@ info [])) in
   Cmd.v info Term.(const exec_cmd $ path $ version_flag $ rest)
 
 let install =
-  let info = Cmd.info "install" in
+  let info = Cmd.info ~doc:"Install ocamlformat" "install" in
   Cmd.v info
     Term.(
       const install_cmd $ path $ version $ ocaml_version $ force $ link_flag)
 
 let link =
-  let info = Cmd.info "link" in
+  let info = Cmd.info ~doc:"Set default ocamlformat version" "link" in
   Cmd.v info Term.(const link_cmd $ path $ version)
 
 let () =
