@@ -130,8 +130,18 @@ let list_cmd path available =
       files
 
 let exec_cmd path version args =
-  let prog =
-    match version with Some v -> "ocamlformat-" ^ v | None -> "ocamlformat"
+  let v, prog =
+    match version with
+    | Some v -> (v, "ocamlformat-" ^ v)
+    | None ->
+        Printf.eprintf "Unable to detect ocamlformat version\n";
+        exit 1
+  in
+  let exe = path // prog in
+  let () =
+    if not (Sys.file_exists exe) then
+      let () = Printf.eprintf "ocamlformat version not found: %s\n" v in
+      exit 1
   in
   let args = Array.of_list args in
   Unix.execvp (path // prog) (Array.append [| "ocamlformat" |] args)
