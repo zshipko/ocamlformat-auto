@@ -65,7 +65,7 @@ module Shim = struct
     let installed = path // "ocamlformat-auto" in
     let () = copy_self installed in
     let oc = open_out exe in
-    Printf.fprintf oc "#!/usr/bin/env sh\n%s exec -- $@\n%!" installed;
+    Printf.fprintf oc "#!/usr/bin/env sh\n%s exec -- \"$@\"\n%!" installed;
     let () = close_out oc in
     let make_executable = Cmd.(v "chmod" % "+x" % exe) in
     OS.Cmd.run_status make_executable |> handle_status;
