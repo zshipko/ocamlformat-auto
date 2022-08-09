@@ -14,6 +14,12 @@ Using [opam](https://github.com/ocaml/opam):
 $ opam pin add git+https://github.com/zshipko/ocamlformat-auto.git
 ```
 
+Using [dune](https://dune.build):
+
+```shell
+$ dune exec ./main.exe init
+```
+
 ## Typical usage
 
 In the root of an existing project (with an `.ocamlformat` file) you can run the following
