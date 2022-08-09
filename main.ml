@@ -10,7 +10,9 @@ module Ocamlformat_version = struct
     in
     let r = input_line inp in
     close_in inp;
-    List.map String.trim @@ String.split_on_char ' ' r
+    List.filter_map (fun s ->
+        if String.equal String.empty s then None else Some (String.trim s))
+    @@ String.split_on_char ' ' r
 
   let latest () = List.rev (all ()) |> List.hd
 
