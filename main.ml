@@ -17,22 +17,26 @@ module Ocamlformat_version = struct
   let latest () = List.rev (all ()) |> List.hd
 
   let detect () =
-    if not (Sys.file_exists ".ocamlformat") then None
-    else
-      let f = open_in ".ocamlformat" in
-      let n = in_channel_length f in
-      let data = really_input_string f n in
-      let lines = String.split_on_char '\n' data in
-      let () = close_in f in
-      List.fold_left
-        (fun acc line ->
-          if Option.is_none acc && String.starts_with ~prefix:"version" line
-          then
-            let s = String.split_on_char '=' line in
-            let v = List.nth s 1 in
-            Some (String.trim v)
-          else acc)
-        None lines
+    let version = Sys.getenv_opt "OCAMLFORMAT_VERSION" in
+    match version with
+    | Some version -> Some version
+    | None ->
+        if not (Sys.file_exists ".ocamlformat") then None
+        else
+          let f = open_in ".ocamlformat" in
+          let n = in_channel_length f in
+          let data = really_input_string f n in
+          let lines = String.split_on_char '\n' data in
+          let () = close_in f in
+          List.fold_left
+            (fun acc line ->
+              if Option.is_none acc && String.starts_with ~prefix:"version" line
+              then
+                let s = String.split_on_char '=' line in
+                let v = List.nth s 1 in
+                Some (String.trim v)
+              else acc)
+            None lines
 end
 
 module Temp_dir = struct
